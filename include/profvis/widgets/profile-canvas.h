@@ -29,12 +29,16 @@ class ProfileCanvas: public Canvas
         void                    draw_events(NVGcontext* ctx, const Profile::Events& events, size_t hoffset, size_t voffset, size_t height);
 
         const NameColors&       colors() const                                      { return colors_; }
+        void                    set_color(std::string name, ng::Color c)            { colors_[name] = c; }
 
         void                    toggle(std::string name)                            { hide[name] = !hide[name]; }
+
+        void                    randomize_colors();
 
 
     public:
         size_t                  time_filter = 1000;
+        size_t                  width       = 1000;
 
     private:
         const Profile&          profile_;
@@ -42,7 +46,6 @@ class ProfileCanvas: public Canvas
 
         size_t                  inset       = 5;
         size_t                  rank_gap    = 30;
-        size_t                  width       = 1000;
 
         size_t                  init_voffset     = 30;
         size_t                  init_hoffset     = 30;
@@ -116,6 +119,18 @@ draw_events(NVGcontext* ctx, const Profile::Events& events, size_t hoffset, size
 
         draw_events(ctx, e.events, hoffset, voffset + inset, height - 2*inset);
     }
+}
+
+void
+profvis::ProfileCanvas::
+randomize_colors()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> rand(0., 1.);
+
+    for (auto& c : colors_)
+        c.second = ng::Color { rand(gen), rand(gen), rand(gen), 1. };
 }
 
 void
