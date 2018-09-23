@@ -1,3 +1,6 @@
 [submodule "ext/nanogui"]
 	path = ext/nanogui
 	url = https://github.com/wjakob/nanogui/
+[submodule "ext/fmt"]
+	path = ext/fmt
+	url = https://github.com/fmtlib/fmt
