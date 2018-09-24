@@ -11,6 +11,8 @@
 #include <nanogui/textbox.h>
 #include <nanogui/popupbutton.h>
 #include <nanogui/colorpicker.h>
+#include <nanogui/vscrollpanel.h>
+#include <nanogui/slider.h>
 namespace ng = nanogui;
 
 #include <profvis/widgets/profile-canvas.h>
@@ -19,6 +21,8 @@ namespace pv = profvis;
 class ProfVis: public ng::Screen
 {
     public:
+        using ColorButtons = std::unordered_map<std::string, std::tuple<ng::Button*, ng::ColorPicker*>>;
+
                             ProfVis(const pv::Profile& profile):
                                 ng::Screen(ng::Vector2i(1200, 800), "Profile visualizer"),
                                 profile_(new pv::ProfileCanvas(profile, this))
@@ -28,6 +32,7 @@ class ProfVis: public ng::Screen
         }
 
         void                setup_controls();
+        void                update_button_colors();
 
         virtual bool        resizeEvent(const ng::Vector2i& sz) override        { profile_->setSize(sz); return true; }
         virtual bool        keyboardEvent(int key, int scancode, int action, int modifiers) override
@@ -44,29 +49,96 @@ class ProfVis: public ng::Screen
             return false;
         }
 
+        std::string         time_to_string(pv::Profile::Time time) const
+        {
+            return fmt::format("{:02d}:{:02d}:{:02d}.{:06d}",
+                               time/1000000/60/60,
+                               time/1000000/60 % 60,
+                               time/1000000 % 60,
+                               time % 1000000);
+        }
+
     private:
         pv::ProfileCanvas*  profile_;
+        ColorButtons        color_buttons_;
 };
 
 void
 ProfVis::setup_controls()
 {
+    auto event_window = new ng::Window(this, "Event");
+    event_window->setPosition({ 870, 600 });
+    event_window->setFixedWidth(300);
+    event_window->setLayout(new ng::GroupLayout);
+
+    auto name_box  = new ng::TextBox(event_window, "");
+    auto begin_box = new ng::TextBox(event_window, "");
+    auto end_box   = new ng::TextBox(event_window, "");
+    auto rank_box  = new ng::TextBox(event_window, "");
+    profile_->set_callback([this,name_box,begin_box,end_box,rank_box](const pv::Profile::Event& e, int rk)
+    {
+        if (rk != -1)
+        {
+            name_box->setValue(e.name);
+            begin_box->setValue(time_to_string(e.begin));
+            end_box->setValue(time_to_string(e.end));
+            rank_box->setValue(std::to_string(rk));
+        } else
+        {
+            name_box->setValue("");
+            begin_box->setValue("");
+            end_box->setValue("");
+            rank_box->setValue("");
+        }
+    });
+
     auto window = new ng::Window(this, "Controls");
     window->setPosition({ 15, 15 });
     window->setLayout(new ng::GroupLayout);
 
-    auto select_colors = new ng::PopupButton(window, "Select colors");
+    auto events = new ng::PopupButton(window, "Events");
+    auto events_popup = events->popup();
+    events_popup->setLayout(new ng::GroupLayout);
+
+    auto layout = new ng::PopupButton(window, "Layout");
+    auto layout_popup = layout->popup();
+    layout_popup->setLayout(new ng::GridLayout(ng::Orientation::Horizontal, 2, ng::Alignment::Fill, 10, 5));
+    auto setup_filter = [layout_popup](std::string name, size_t* variable, size_t max)
+    {
+        new ng::Label(layout_popup, name);
+        auto filter = new ng::IntBox<int>(layout_popup, *variable);
+        filter->setCallback([variable](int x) { *variable = x; });
+        filter->setEditable(true);
+        filter->setSpinnable(true);
+        filter->setMinValue(0);
+        //auto filter = new ng::Slider(layout_popup);
+        //filter->setValue(float(*variable) / max);
+        //filter->setCallback([variable,max](float x) { *variable = x * max; });
+
+        return filter;
+    };
+    auto width_filter = setup_filter("width",  &profile_->width, 10000);
+    width_filter->setValueIncrement(100);
+    setup_filter("height", &profile_->init_height, 100);
+    setup_filter("inset",  &profile_->inset,       25);
+    setup_filter("gap",    &profile_->rank_gap,    100);
+
+    new ng::Label(window, "Time (min duration shown)");
+    auto time_filter = new ng::IntBox<pv::Profile::Time>(window, profile_->time_filter);
+    time_filter->setCallback([this](pv::Profile::Time t) { profile_->time_filter = t; });
+    time_filter->setEditable(true);
+
+    new ng::Label(window, "Colors");
+
+    auto select_colors = new ng::PopupButton(window, "Select");
     auto color_popup = select_colors->popup();
     color_popup->setLayout(new ng::GroupLayout);
 
-    new ng::Label(window, "Events");
-
-    std::unordered_map<std::string, std::tuple<ng::Button*, ng::ColorPicker*>>  color_buttons;
-
+    // fill colors both in Select and Events popups
     for (auto& c : profile_->colors())
     {
         auto name = c.first;
-        auto button = new ng::Button(window, name);
+        auto button = new ng::Button(events_popup, name);
         button->setFlags(ng::Button::ToggleButton);
         button->setBackgroundColor(c.second);
         button->setTextColor(c.second.contrastingColor());
@@ -84,49 +156,17 @@ ProfVis::setup_controls()
             profile_->set_color(name, c);
         });
 
-        color_buttons[name] = { button, cb };
+        color_buttons_[name] = { button, cb };
     }
 
-    new ng::Label(window, "Time filter (min duration shown)");
-    auto time_filter = new ng::IntBox<pv::Profile::Time>(window, profile_->time_filter);
-    time_filter->setCallback([this](pv::Profile::Time t) { profile_->time_filter = t; });
-    time_filter->setEditable(true);
-
-    new ng::Label(window, "Width");
-    auto width_filter = new ng::IntBox<size_t>(window, profile_->width);
-    width_filter->setCallback([this](size_t w) { profile_->width = w; });
-    width_filter->setEditable(true);
-
-    /**********/
-    /* Colors */
-    /**********/
-    auto update_button_colors = [this,window,color_buttons]()
-    {
-        // update button colors
-        for (auto& x : color_buttons)
-        {
-            auto                name = x.first;
-            ng::Button*         b    = std::get<0>(x.second);
-            ng::ColorPicker*    cb   = std::get<1>(x.second);
-            {
-                auto c = profile_->colors().find(name)->second;
-                b->setBackgroundColor(c);
-                b->setTextColor(c.contrastingColor());
-                cb->setBackgroundColor(c);
-                cb->setTextColor(c.contrastingColor());
-            }
-        }
-    };
-
-    new ng::Label(window, "Colors");
-    auto randomize_colors = new ng::Button(window, "Randomize colors");
-    randomize_colors->setCallback([this,update_button_colors]()
+    auto randomize_colors = new ng::Button(window, "Randomize");
+    randomize_colors->setCallback([this]()
     {
         profile_->randomize_colors();
         update_button_colors();
     });
 
-    auto save_colors = new ng::Button(window, "Save colors");
+    auto save_colors = new ng::Button(window, "Save");
     save_colors->setCallback([&]
     {
         auto filename = ng::file_dialog({ {"clr", "Colors"}, {"txt", "Text file"} }, true);
@@ -135,8 +175,8 @@ ProfVis::setup_controls()
             fmt::print(out, "{} {} {} {}\n", c.first, c.second.r(), c.second.g(), c.second.b());
     });
 
-    auto load_colors = new ng::Button(window, "Load colors");
-    load_colors->setCallback([this,update_button_colors]
+    auto load_colors = new ng::Button(window, "Load");
+    load_colors->setCallback([this]
     {
         auto filename = ng::file_dialog({ {"clr", "Colors"}, {"txt", "Text file"} }, false);
 
@@ -154,6 +194,27 @@ ProfVis::setup_controls()
         update_button_colors();
     });
 }
+
+void
+ProfVis::
+update_button_colors()
+{
+    // update button colors
+    for (auto& x : color_buttons_)
+    {
+        auto                name = x.first;
+        ng::Button*         b    = std::get<0>(x.second);
+        ng::ColorPicker*    cb   = std::get<1>(x.second);
+        {
+            auto c = profile_->colors().find(name)->second;
+            b->setBackgroundColor(c);
+            b->setTextColor(c.contrastingColor());
+            cb->setBackgroundColor(c);
+            cb->setTextColor(c.contrastingColor());
+        }
+    }
+}
+
 
 int main(int argc, char *argv[])
 {
