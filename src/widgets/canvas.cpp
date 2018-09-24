@@ -94,7 +94,7 @@ mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int b
     } else if (mActive && mState == State::Select)
         mLast = p;
 
-    return true;
+    return false;
 }
 
 bool
