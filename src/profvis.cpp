@@ -23,8 +23,8 @@ class ProfVis: public ng::Screen
     public:
         using ColorButtons = std::unordered_map<std::string, std::tuple<ng::Button*, ng::ColorPicker*>>;
 
-                            ProfVis(const pv::Profile& profile):
-                                ng::Screen(ng::Vector2i(1200, 800), "Profile visualizer"),
+                            ProfVis(const pv::Profile& profile, std::string suffix = ""):
+                                ng::Screen(ng::Vector2i(1200, 800), "Profile visualizer" + suffix),
                                 profile_(new pv::ProfileCanvas(profile, this))
         {
             setup_controls();
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
         nanogui::init();
 
         pv::Profile profile = pv::read_profile(infn);
-        ProfVis*    app     = new ProfVis(profile);
+        ProfVis*    app     = new ProfVis(profile, " - " + infn);
 
         app->drawAll();
         app->setVisible(true);
