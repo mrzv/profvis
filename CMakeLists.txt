@@ -33,5 +33,5 @@ add_subdirectory        (ext/fmt)
 
 include_directories     (include)
 
-add_executable          (profvis        src/profvis.cpp src/widgets/canvas.cpp)
+add_executable          (profvis        src/profvis.cpp src/canvas.cpp)
 target_link_libraries   (profvis        fmt nanogui ${NANOGUI_EXTRA_LIBS})

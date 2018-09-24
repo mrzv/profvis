@@ -15,7 +15,7 @@
 #include <nanogui/slider.h>
 namespace ng = nanogui;
 
-#include <profvis/widgets/profile-canvas.h>
+#include <profvis/profile-canvas.h>
 namespace pv = profvis;
 
 class ProfVis: public ng::Screen

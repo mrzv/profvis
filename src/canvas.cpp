@@ -1,4 +1,4 @@
-#include <profvis/widgets/canvas.h>
+#include <profvis/canvas.h>
 
 void
 profvis::
