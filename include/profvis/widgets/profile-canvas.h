@@ -42,6 +42,7 @@ class ProfileCanvas: public Canvas
         void                    set_callback(const Callback& callback)              { callback_ = callback; }
 
         virtual bool            mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int button, int modifiers) override;
+        const Profile::Event*   search_events(Profile::Time time, const Profile::Events& events, int level, int max_level) const;
 
         size_t                  base_height() const                                 { return init_height + 2*inset*profile_.max_depth(); }
 
@@ -119,11 +120,11 @@ draw_events(NVGcontext* ctx, const Profile::Events& events, size_t hoffset, size
             nvgRect(vg, x, y, w, h);
             //fmt::print("Event ({}, {}, {})\n", e.name, e.begin, e.end);
             //fmt::print("Rectangle ({}, {}, {}, {})\n", x, y, w, h);
-            nvgStrokeColor(vg, color);
-            nvgStrokeWidth(vg, 1.0f);
+            //nvgStrokeColor(vg, color);
+            //nvgStrokeWidth(vg, 1.0f);
             nvgFillColor(vg, color);
             nvgFill(vg);
-            nvgStroke(vg);
+            //nvgStroke(vg);
         }
 
         draw_events(ctx, e.events, hoffset, voffset + inset, height - 2*inset);
@@ -154,7 +155,8 @@ mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int b
         return false;
     }
 
-    if (y - init_voffset - rk*(base_height() + rank_gap) > base_height())        // gap between ranks
+    float rel_y = y - init_voffset - rk*(base_height() + rank_gap);
+    if (rel_y > base_height())        // gap between ranks
     {
         callback_(dummy, -1);
         return false;
@@ -163,23 +165,54 @@ mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int b
     // translate x to time
     Profile::Time time = (x - init_hoffset) / width * profile_.max_time();
 
+    int max_level;
+    if (rel_y < base_height()/2)
+        max_level = rel_y / inset;
+    else
+        max_level = (base_height() - rel_y) / inset;
+
     // find the event
-    for (auto& e : profile_.events[rk])
+    const Profile::Event* event = search_events(time, profile_.events[rk], 0, max_level);
+    if (event)
+    {
+        callback_(*event, rk);
+        return true;
+    } else
+    {
+        callback_(dummy, -1);
+        return false;
+    }
+}
+
+
+const profvis::Profile::Event*
+profvis::ProfileCanvas::
+search_events(Profile::Time time, const Profile::Events& events, int level, int max_level) const
+{
+    if (level > max_level)
+        return nullptr;
+
+    for (auto& e : events)      // TODO: binary search
     {
         if (e.end - e.begin < time_filter) continue;
 
         if (time <= e.end && time >= e.begin)
         {
-            //if (hide[e.name])
-            // recursively search children
-            callback_(e, rk);
-            return true;
+            // search children
+            const Profile::Event* event = search_events(time, e.events, level + 1, max_level);
+
+            if (event)
+                return event;
+
+            auto it = hide.find(e.name);
+            if (it != hide.end() && it->second)
+                return nullptr;
+
+            return &e;
         }
     }
 
-    callback_(dummy, -1);
-
-    return true;
+    return nullptr;
 }
 
 void
