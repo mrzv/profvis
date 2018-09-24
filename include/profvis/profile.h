@@ -5,6 +5,8 @@
 #include <vector>
 #include <fstream>
 
+#include <zstr/zstr.hpp>
+
 namespace profvis
 {
 
@@ -56,7 +58,7 @@ read_profile(std::string fn)
 {
     Profile profile;
 
-    std::ifstream                   in(fn);
+    zstr::ifstream                  in(fn);
     std::string                     line;
     std::vector<Profile::Event*>    event_stack;
     size_t                          max_depth = 0;
