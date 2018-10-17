@@ -4,6 +4,7 @@ from opster import command, dispatch
 from collections import defaultdict
 import datetime
 import gzip
+import re
 
 def parse_time(s):
     s = s.split('.')
@@ -34,6 +35,7 @@ def events(fn):
     if is_gzipfile(fn):
         open_ = gzip.open
 
+    stack = []
     with open_(fn, 'rt') as f:
         for line in f:
             line  = line.split()
@@ -41,32 +43,63 @@ def events(fn):
             time  = parse_time(line[1])
             begin = True if line[2][0] == '<' else False
             name  = line[2][1:]
-            yield rk, time, begin, name
+            if begin:
+                stack.append(name)
+                full_name = ':'.join(stack)
+            else:
+                full_name = ':'.join(stack)
+                stack.pop()
+            yield rk, time, begin, name, full_name
+    if len(stack) != 0:
+        print("Warning: stack not empty at the end of the profile")
 
 @command()
-def show(fn, segment,
-          total = ('t', False, "show total only")):
-    """Count the number of occurrences and total time of a segment in the profile"""
+def show(fn, segment='',
+          regex      = ('r', '',    "regular expression to apply"),
+          full_name  = ('f', False, "use full names"),
+          stats_only = ('', False, "show stats only"),
+          ranks_only = ('', False, "don't show stats")):
+    """Show the number of occurrences and total time spent in different segments of the profile"""
 
-    count = defaultdict(int)
-    count_total = 0
-    time  = defaultdict(int)
-    time_total = 0
-    for rk, t, begin, name in events(fn):
-        if name == segment:
+    count       = defaultdict(lambda: defaultdict(int))
+    time        = defaultdict(lambda: defaultdict(int))
+
+    if regex:
+        regex_prog = re.compile(regex)
+
+    last = {}
+    for rk, t, begin, name, full_name_ in events(fn):
+        last_name_ = name
+        if full_name:
+            name = full_name_
+        if not name: continue
+        if (not segment and not regex) or name == segment or (regex and regex_prog.match(name)):
             if begin:
-                count_total += 1
-                count[rk] += 1
-                last = t
+                count[name][rk] += 1
+                last[name]       = t
             else:
-                time[rk] += t - last
-                time_total += t - last
+                time[name][rk]  += t - last[name]
 
-    if not total:
-        for rk in sorted(count.keys()):
-            print(str(rk).rjust(10), str(count[rk]).rjust(20), format_time(time[rk]).rjust(20))
-
-    print("Total:".rjust(10), str(count_total).rjust(20), format_time(time_total).rjust(20))
+    for name in sorted(count.keys()):
+        print(name)
+        if not stats_only:
+            for rk in sorted(count[name].keys()):
+                print(str(rk).rjust(10), str(count[name][rk]).rjust(20), format_time(time[name][rk]).rjust(20))
+        if not ranks_only:
+            max_count = max(count[name].values())
+            min_count = min(count[name].values())
+            sum_count = sum(count[name].values())
+            max_time  = max(time[name].values())
+            min_time  = min(time[name].values())
+            sum_time  = sum(time[name].values())
+            print("  Count:")
+            print("    min: ", str(min_count).rjust(21))
+            print("    max: ", str(max_count).rjust(21))
+            print("    sum: ", str(sum_count).rjust(21))
+            print("  Time:")
+            print("    min: ", format_time(min_time).rjust(42))
+            print("    max: ", format_time(max_time).rjust(42))
+            print("    sum: ", format_time(sum_time).rjust(42))
 
 if __name__ == '__main__':
     dispatch()
