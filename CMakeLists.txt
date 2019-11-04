@@ -37,5 +37,5 @@ include_directories     (include)
 find_package            (ZLIB REQUIRED)
 include_directories     (${ZLIB_INCLUDE_DIRS})
 
-add_executable          (profvis        src/profvis.cpp src/canvas.cpp)
+add_executable          (profvis        src/profvis.cpp src/canvas.cpp src/profile.cpp src/profile-canvas.cpp)
 target_link_libraries   (profvis        fmt nanogui ${NANOGUI_EXTRA_LIBS} ${ZLIB_LIBRARIES})
