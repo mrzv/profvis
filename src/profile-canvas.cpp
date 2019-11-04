@@ -37,14 +37,14 @@ draw_events(NVGcontext* ctx, const Profile::Events& events, size_t hoffset, size
         NVGcontext* vg = ctx;
         nvgBeginPath(vg);
 
-        auto color = colors_[e.name];
+        auto color = colors_[e.id];
 
         float x = hoffset + float(e.begin) / profile_.max_time() * width;
         float y = voffset;
         float w = float(e.end - e.begin) / profile_.max_time() * width;
         float h = height;
 
-        if (!hide[e.name])
+        if (!hide[e.id])
         {
             nvgRect(vg, x, y, w, h);
             //fmt::print("Event ({}, {}, {})\n", e.name, e.begin, e.end);
@@ -76,7 +76,7 @@ mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int b
     // translate y to rank
     int rk = floor((y - init_voffset)/(base_height() + rank_gap));
 
-    Profile::Event dummy { "", 0, 0 };
+    Profile::Event dummy { static_cast<size_t>(-1), 0, 0 };
 
     if (rk < 0 || rk > profile_.events.size() - 1)
     {
@@ -133,8 +133,7 @@ search_events(Profile::Time time, const Profile::Events& events, int level, int 
             if (event)
                 return event;
 
-            auto it = hide.find(e.name);
-            if (it != hide.end() && it->second)
+            if (hide[e.id])
                 return nullptr;
 
             return &e;
@@ -153,22 +152,20 @@ randomize_colors()
     std::uniform_real_distribution<float> rand(0., 1.);
 
     for (auto& c : colors_)
-        c.second = ng::Color { rand(gen), rand(gen), rand(gen), 1. };
+        c = ng::Color { rand(gen), rand(gen), rand(gen), 1. };
 }
 
-void
+profvis::NameColors
 profvis::
-fill_colors(const Profile::Events& events, NameColors& colors, std::mt19937& gen)
+fill_colors(const Profile& profile, std::mt19937& gen)
 {
-    for (auto& e : events)
+    NameColors colors; colors.resize(profile.names.size());
+    for (size_t id = 0; id < profile.names.size(); ++id)
     {
-        if (colors.find(e.name) == colors.end())
-        {
             std::uniform_real_distribution<float> rand(0., 1.);
-            colors[e.name] = ng::Color { rand(gen), rand(gen), rand(gen), 1. };
-        }
-        fill_colors(e.events, colors, gen);
+            colors[id] = ng::Color { rand(gen), rand(gen), rand(gen), 1. };
     }
+    return colors;
 }
 
 profvis::NameColors
@@ -178,9 +175,7 @@ name_to_color(const Profile& profile)
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    NameColors  colors;
-    for (auto& events : profile.events)
-        fill_colors(events, colors, gen);
+    NameColors  colors = fill_colors(profile, gen);
 
     return colors;
 }

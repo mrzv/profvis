@@ -79,7 +79,7 @@ ProfVis::setup_controls()
     {
         if (rk != -1)
         {
-            name_box->setValue(e.name);
+            name_box->setValue(profile_->profile().name(e));
             begin_box->setValue(time_to_string(e.begin));
             end_box->setValue(time_to_string(e.end));
             rank_box->setValue(std::to_string(rk));
@@ -135,18 +135,20 @@ ProfVis::setup_controls()
     color_popup->setLayout(new ng::GroupLayout);
 
     // fill colors both in Select and Events popups
-    for (auto& c : profile_->colors())
+    for (size_t i = 0; i < profile_->colors().size(); ++i)
     {
-        auto name = c.first;
+        auto& c = profile_->colors()[i];
+        auto name = profile_->profile().name(i);
+
         auto button = new ng::Button(events_popup, name);
         button->setFlags(ng::Button::ToggleButton);
-        button->setBackgroundColor(c.second);
-        button->setTextColor(c.second.contrastingColor());
+        button->setBackgroundColor(c);
+        button->setTextColor(c.contrastingColor());
         button->setChangeCallback([name, this](bool state) { profile_->toggle(name); });
 
-        auto cb = new ng::ColorPicker(color_popup, c.second);
-        cb->setCaption(c.first);
-        cb->setTextColor(c.second.contrastingColor());
+        auto cb = new ng::ColorPicker(color_popup, c);
+        cb->setCaption(name);
+        cb->setTextColor(c.contrastingColor());
         cb->setFinalCallback([this,button,cb,name](const ng::Color& c)
         {
             button->setBackgroundColor(c);
@@ -171,8 +173,12 @@ ProfVis::setup_controls()
     {
         auto filename = ng::file_dialog({ {"clr", "Colors"}, {"txt", "Text file"} }, true);
         std::ofstream out(filename);
-        for (auto& c : profile_->colors())
-            fmt::print(out, "{} {} {} {}\n", c.first, c.second.r(), c.second.g(), c.second.b());
+        for (size_t i = 0; i < profile_->colors().size(); ++i)
+        {
+            auto& c = profile_->colors()[i];
+            auto name = profile_->profile().name(i);
+            fmt::print(out, "{} {} {} {}\n", name, c.r(), c.g(), c.b());
+        }
     });
 
     auto load_colors = new ng::Button(window, "Load");
@@ -206,7 +212,7 @@ update_button_colors()
         ng::Button*         b    = std::get<0>(x.second);
         ng::ColorPicker*    cb   = std::get<1>(x.second);
         {
-            auto c = profile_->colors().find(name)->second;
+            auto c = profile_->colors()[profile_->profile().id(name)];
             b->setBackgroundColor(c);
             b->setTextColor(c.contrastingColor());
             cb->setBackgroundColor(c);

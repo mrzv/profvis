@@ -61,7 +61,17 @@ read_profile(std::string fn)
             else
                 level = &(event_stack.back()->events);
 
-            level->emplace_back(Profile::Event { name, time, time });
+            size_t id = profile.names.size();
+            auto it = profile.ids.find(name);
+            if (it != profile.ids.end())
+                id = it->second;
+            else
+            {
+                profile.names.push_back(name);
+                profile.ids[name] = id;
+            }
+
+            level->emplace_back(Profile::Event { id, time, time });
             event_stack.push_back(&level->back());
         }
     }
@@ -72,3 +82,10 @@ read_profile(std::string fn)
     return profile;
 }
 
+profvis::Profile
+profvis::
+read_caliper(std::string fn)
+{
+    // TODO
+    return profvis::Profile();
+}
