@@ -228,14 +228,18 @@ int main(int argc, char *argv[])
     Options ops;
 
     bool help;
+    bool caliper;
     ops
         >> Option('h', "help",  help,           "show help")
+        >> Option('c', "caliper", caliper,      "parse caliper format")
     ;
 
     std::string     infn;
     if (!ops.parse(argc,argv) || !(ops >> PosOption(infn)) || help)
     {
-        fmt::print("Usage: {} FILE.prf\n{}", argv[0], ops);
+        fmt::print("Usage: {} FILE.prf\n", argv[0]);
+        fmt::print("\nCaliper format is produced via: cali-query -t *.cali -q \"SELECT * WHERE event.end#annotation\"\n\n");
+        fmt::print("{}", ops);
         return 1;
     }
 
@@ -243,7 +247,11 @@ int main(int argc, char *argv[])
     {
         nanogui::init();
 
-        pv::Profile profile = pv::read_profile(infn);
+        pv::Profile profile;
+        if (!caliper)
+            profile = pv::read_profile(infn);
+        else
+            profile = pv::read_caliper(infn);
         ProfVis*    app     = new ProfVis(profile, " - " + infn);
 
         app->drawAll();
