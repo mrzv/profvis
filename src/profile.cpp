@@ -90,7 +90,7 @@ read_caliper(std::string fn)
 {
     Profile profile;
 
-    std::ifstream       in(fn);
+    zstr::ifstream      in(fn);
 
     std::unordered_map<std::string, size_t>     columns;
     std::string         header;
