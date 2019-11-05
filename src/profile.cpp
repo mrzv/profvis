@@ -2,6 +2,18 @@
 #include <iterator>
 #include <algorithm>
 
+// Modified from: https://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
+static inline std::string trim(std::string s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
+        return !std::isspace(ch);
+    }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+    return s;
+}
+
+
 profvis::Profile::Time
 profvis::parse_time(std::string stamp)
 {
@@ -92,37 +104,53 @@ read_caliper(std::string fn)
 
     zstr::ifstream      in(fn);
 
-    std::unordered_map<std::string, size_t>     columns;
+    using size_type = std::string::size_type;
+
+    std::unordered_map<std::string, std::tuple<size_type,size_type>>     columns;
     std::string         header;
     std::getline(in, header);
-    std::istringstream inheader(header);
-    std::string heading;
-    size_t i = 0;
-    while(inheader >> heading)
+
+    bool parsing = false;
+    size_type last = 0;
+    for (size_type i = 0; i < header.size(); ++i)
     {
-        columns[heading] = i;
-        ++i;
+        if (header[i] != ' ')
+        {
+            if (!parsing)
+            {
+                parsing = true;
+                columns[trim(header.substr(last, i - last - 1))] = std::make_tuple(last, i - last - 1);
+                last = i;
+            }
+        } else
+        {
+            if (parsing)
+                parsing = false;
+        }
     }
-    int mpi_rank_column = -1;
-    auto it = columns.find("mpi.rank");
-    if (it != columns.end())
-        mpi_rank_column = it->second;
+    columns[trim(header.substr(last))] = std::make_tuple(last, std::string::npos);
+    bool has_mpi_rank = columns.find("mpi.rank") != columns.end();
 
     std::vector<std::tuple<int, size_t, size_t, bool>> events;
+
+    auto get_column = [&columns](const std::string& line, const char* name)
+    {
+        size_type from, to;
+        std::tie(from,to) = columns[name];
+
+        return trim(line.substr(from,to));
+    };
 
     std::string         line;
     while(std::getline(in, line))
     {
         std::istringstream iss(line);
 
-        std::vector<std::string> entries;
-        std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), std::back_inserter(entries));
+        int    rank      = !has_mpi_rank ? 0 : std::stoi(get_column(line, "mpi.rank"));
+        size_t offset    = std::stol(get_column(line, "time.offset"));
+        size_t duration  = std::stol(get_column(line, "time.inclusive.duration"));
 
-        int    rank      = mpi_rank_column == -1 ? 0 : std::stoi(entries[mpi_rank_column]);
-        size_t offset    = std::stol(entries[columns["time.offset"]]);
-        size_t duration  = std::stol(entries[columns["time.inclusive.duration"]]);
-
-        std::string name = entries[columns["annotation"]];
+        std::string name = get_column(line, "annotation");
         auto last_slash = name.find_last_of("/");
         name = name.substr(last_slash + 1);
 
