@@ -229,9 +229,11 @@ int main(int argc, char *argv[])
 
     bool help;
     bool caliper;
+    pv::Profile::Time start_time = std::numeric_limits<pv::Profile::Time>::min();
     ops
         >> Option('h', "help",  help,           "show help")
         >> Option('c', "caliper", caliper,      "parse caliper format")
+        >> Option('s', "start",   start_time,   "time to start the profile")
     ;
 
     std::string     infn;
@@ -252,6 +254,10 @@ int main(int argc, char *argv[])
             profile = pv::read_profile(infn);
         else
             profile = pv::read_caliper(infn);
+
+        if (start_time != std::numeric_limits<pv::Profile::Time>::min())
+            profile.min_time_ = start_time;
+
         ProfVis*    app     = new ProfVis(profile, " - " + infn);
 
         app->drawAll();

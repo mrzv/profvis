@@ -39,9 +39,9 @@ draw_events(NVGcontext* ctx, const Profile::Events& events, size_t hoffset, size
 
         auto color = colors_[e.id];
 
-        float x = hoffset + float(e.begin) / profile_.max_time() * width;
+        float x = hoffset + (float(e.begin) - profile_.min_time()) / (profile_.max_time() - profile_.min_time()) * width;
         float y = voffset;
-        float w = float(e.end - e.begin) / profile_.max_time() * width;
+        float w = float(e.end - e.begin) / (profile_.max_time() - profile_.min_time()) * width;
         float h = height;
 
         if (!hide[e.id])
@@ -92,7 +92,7 @@ mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int b
     }
 
     // translate x to time
-    Profile::Time time = (x - init_hoffset) / width * profile_.max_time();
+    Profile::Time time = profile_.min_time() + (x - init_hoffset) / width * (profile_.max_time() - profile_.min_time());
 
     int max_level;
     if (rel_y < base_height()/2)

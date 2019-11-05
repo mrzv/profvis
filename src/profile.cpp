@@ -37,7 +37,8 @@ read_profile(std::string fn)
     std::string                     line;
     std::vector<Profile::Event*>    event_stack;
     size_t                          max_depth = 0;
-    Profile::Time                   max_time = 0;
+    Profile::Time                   max_time = std::numeric_limits<Profile::Time>::min();
+    Profile::Time                   min_time = std::numeric_limits<Profile::Time>::max();
     while(std::getline(in, line))
     {
         std::istringstream ins(line);
@@ -48,8 +49,8 @@ read_profile(std::string fn)
         ins >> rank >> time_stamp >> name;
         auto time = parse_time(time_stamp);
 
-        if (time > max_time)
-            max_time = time;
+        if (time > max_time) max_time = time;
+        if (time < min_time) min_time = time;
 
         bool begin;
         if (name[0] == '<')
@@ -92,6 +93,7 @@ read_profile(std::string fn)
 
     profile.max_depth_  = max_depth;
     profile.max_time_   = max_time;
+    profile.min_time_   = min_time;
 
     return profile;
 }
@@ -172,15 +174,16 @@ read_caliper(std::string fn)
 
     std::vector<Profile::Event*>    event_stack;
     size_t          max_depth = 0;
-    Profile::Time   max_time = 0;
+    Profile::Time   max_time = std::numeric_limits<Profile::Time>::min();
+    Profile::Time   min_time = std::numeric_limits<Profile::Time>::max();
 
     for (auto& event : events)
     {
         bool begin; size_t time; size_t id; size_t rank;
         std::tie(rank,time,id,begin) = event;
 
-        if (time > max_time)
-            max_time = time;
+        if (time > max_time) max_time = time;
+        if (time < min_time) min_time = time;
 
         if (begin)
         {
@@ -206,6 +209,7 @@ read_caliper(std::string fn)
 
     profile.max_depth_  = max_depth;
     profile.max_time_   = max_time;
+    profile.min_time_   = min_time;
 
     return profile;
 }

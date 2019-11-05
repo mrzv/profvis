@@ -29,6 +29,7 @@ struct Profile
 
     int                 max_depth() const   { return max_depth_; }
     Time                max_time() const    { return max_time_; }
+    Time                min_time() const    { return min_time_; }
 
     std::string         name(const Event& e) const      { return name(e.id); }
     std::string         name(size_t id) const           { return names[id]; }
@@ -41,6 +42,7 @@ struct Profile
 
     int                         max_depth_;
     Time                        max_time_;
+    Time                        min_time_;
 };
 
 Profile::Time   parse_time(std::string stamp);
