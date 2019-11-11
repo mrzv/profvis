@@ -229,18 +229,20 @@ int main(int argc, char *argv[])
 
     bool help;
     bool caliper;
+    bool mpi_functions;
     pv::Profile::Time start_time = std::numeric_limits<pv::Profile::Time>::min();
     ops
-        >> Option('h', "help",  help,           "show help")
-        >> Option('c', "caliper", caliper,      "parse caliper format")
-        >> Option('s', "start",   start_time,   "time to start the profile")
+        >> Option('h', "help",          help,           "show help")
+        >> Option('c', "caliper",       caliper,        "parse caliper format")
+        >> Option('m', "mpi-functions", mpi_functions,  "parse mpi functions")
+        >> Option('s', "start",         start_time,     "time to start the profile")
     ;
 
     std::string     infn;
     if (!ops.parse(argc,argv) || !(ops >> PosOption(infn)) || help)
     {
         fmt::print("Usage: {} FILE.prf\n", argv[0]);
-        fmt::print("\nCaliper format is produced via: cali-query -t *.cali -q \"SELECT * WHERE event.end#annotation\"\n\n");
+        fmt::print("\nCaliper format is produced via: cali-query -e *.cali\n\n");
         fmt::print("{}", ops);
         return 1;
     }
@@ -253,7 +255,7 @@ int main(int argc, char *argv[])
         if (!caliper)
             profile = pv::read_profile(infn);
         else
-            profile = pv::read_caliper(infn);
+            profile = pv::read_caliper(infn, mpi_functions);
 
         if (start_time != std::numeric_limits<pv::Profile::Time>::min())
             profile.min_time_ = start_time;

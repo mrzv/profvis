@@ -48,6 +48,6 @@ struct Profile
 Profile::Time   parse_time(std::string stamp);
 Profile         read_profile(std::string fn);
 
-Profile         read_caliper(std::string fn);
+Profile         read_caliper(std::string fn, bool mpi_functions = false);
 
 }

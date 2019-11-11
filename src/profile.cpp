@@ -2,6 +2,8 @@
 #include <iterator>
 #include <algorithm>
 
+#include <iostream>
+
 // Modified from: https://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
 static inline std::string trim(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
@@ -100,74 +102,54 @@ read_profile(std::string fn)
 
 profvis::Profile
 profvis::
-read_caliper(std::string fn)
+read_caliper(std::string fn, bool mpi_functions)
 {
     Profile profile;
 
     zstr::ifstream      in(fn);
+    std::cout << "Opened: " << fn << std::endl;
 
-    using size_type = std::string::size_type;
-
-    std::unordered_map<std::string, std::tuple<size_type,size_type>>     columns;
-    std::string         header;
-    std::getline(in, header);
-
-    bool parsing = false;
-    size_type last = 0;
-    for (size_type i = 0; i < header.size(); ++i)
-    {
-        if (header[i] != ' ')
-        {
-            if (!parsing)
-            {
-                parsing = true;
-                columns[trim(header.substr(last, i - last - 1))] = std::make_tuple(last, i - last - 1);
-                last = i;
-            }
-        } else
-        {
-            if (parsing)
-                parsing = false;
-        }
-    }
-    columns[trim(header.substr(last))] = std::make_tuple(last, std::string::npos);
-    bool has_mpi_rank = columns.find("mpi.rank") != columns.end();
-
+    std::string line;
     std::vector<std::tuple<int, size_t, size_t, bool>> events;
-
-    auto get_column = [&columns](const std::string& line, const char* name)
-    {
-        size_type from, to;
-        std::tie(from,to) = columns[name];
-
-        return trim(line.substr(from,to));
-    };
-
-    std::string         line;
     while(std::getline(in, line))
     {
         std::istringstream iss(line);
-
-        int    rank      = !has_mpi_rank ? 0 : std::stoi(get_column(line, "mpi.rank"));
-        size_t offset    = std::stol(get_column(line, "time.offset"));
-        size_t duration  = std::stol(get_column(line, "time.inclusive.duration"));
-
-        std::string name = get_column(line, "annotation");
-        auto last_slash = name.find_last_of("/");
-        name = name.substr(last_slash + 1);
-
-        size_t id = profile.names.size();
-        auto it = profile.ids.find(name);
-        if (it != profile.ids.end())
-            id = it->second;
-        else
+        std::string field;
+        int rank = 0;
+        size_t offset;
+        int type = -1; size_t id;
+        while(std::getline(iss, field, ','))
         {
-            profile.names.push_back(name);
-            profile.ids[name] = id;
+            auto eq_pos = field.find('=');
+            auto name  = field.substr(0,eq_pos);
+            auto value = field.substr(eq_pos+1);
+
+            if (name == "mpi.rank")
+                rank = std::stoi(value);
+            else if (name == "event.begin#annotation" || (mpi_functions && name == "event.begin#mpi.function"))
+            {
+                type = 0;
+                id = profile.names.size();
+                auto it = profile.ids.find(value);
+                if (it != profile.ids.end())
+                    id = it->second;
+                else
+                {
+                    profile.names.push_back(value);
+                    profile.ids[value] = id;
+                }
+            }
+            else if (name == "event.end#annotation" || (mpi_functions && name == "event.end#mpi.function"))
+            {
+                type = 1;
+                id = profile.ids.find(value)->second;
+            }
+            else if (name == "time.offset")
+                offset = std::stol(value);
         }
 
-        events.emplace_back(rank, offset - duration, id, true);
-        events.emplace_back(rank, offset, id, false);
+        if (type >= 0)
+            events.emplace_back(rank, offset, id, type == 0);
     }
 
     std::sort(events.begin(), events.end());

@@ -167,10 +167,30 @@ fill_colors(const Profile& profile, std::mt19937& gen)
            {0, 0, 128},    {128, 128, 128}, {255, 255, 255}, {0, 0, 0} };
 
     NameColors colors; colors.resize(profile.names.size());
+    std::vector<std::tuple<std::string, size_t>> color_names;
     for (size_t id = 0; id < profile.names.size(); ++id)
+        color_names.emplace_back(profile.names[id], id);
+
+    std::sort(color_names.begin(), color_names.end(),
+              [](const decltype(color_names)::value_type& x, const decltype(color_names)::value_type& y)
+              {
+                auto& xs = std::get<0>(x);
+                auto& ys = std::get<0>(y);
+
+                // order MPI functions at the end
+                if (xs.substr(0,3) == "MPI" && ys.substr(0,3) != "MPI")
+                    return false;
+                else if (xs.substr(0,3) != "MPI" && ys.substr(0,3) == "MPI")
+                    return true;
+                else
+                    return xs < ys;
+              });
+
+    for (size_t i = 0; i < color_names.size(); ++i)
     {
+        size_t id = std::get<1>(color_names[i]);
         int ri,gi,bi;
-        std::tie(ri,gi,bi) = distinct_colors[id % colors.size()];
+        std::tie(ri,gi,bi) = distinct_colors[i % colors.size()];
         colors[id] = ng::Color { float(ri)/255, float(gi)/255, float(bi)/255, 1. };
     }
     return colors;
