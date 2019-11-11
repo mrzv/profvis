@@ -159,11 +159,19 @@ profvis::NameColors
 profvis::
 fill_colors(const Profile& profile, std::mt19937& gen)
 {
+    //.Colors from https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
+    std::vector<std::tuple<int, int, int>> distinct_colors =
+        { {230, 25, 75},   {60, 180, 75},   {255, 225, 25},  {0, 130, 200},   {245, 130, 48}, {145, 30, 180},
+           {70, 240, 240}, {240, 50, 230},  {210, 245, 60},  {250, 190, 190}, {0, 128, 128},  {230, 190, 255},
+           {170, 110, 40}, {255, 250, 200}, {128, 0, 0},     {170, 255, 195}, {128, 128, 0},  {255, 215, 180},
+           {0, 0, 128},    {128, 128, 128}, {255, 255, 255}, {0, 0, 0} };
+
     NameColors colors; colors.resize(profile.names.size());
     for (size_t id = 0; id < profile.names.size(); ++id)
     {
-            std::uniform_real_distribution<float> rand(0., 1.);
-            colors[id] = ng::Color { rand(gen), rand(gen), rand(gen), 1. };
+        int ri,gi,bi;
+        std::tie(ri,gi,bi) = distinct_colors[id % colors.size()];
+        colors[id] = ng::Color { float(ri)/255, float(gi)/255, float(bi)/255, 1. };
     }
     return colors;
 }
