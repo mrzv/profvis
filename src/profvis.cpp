@@ -69,12 +69,21 @@ ProfVis::setup_controls()
     auto event_window = new ng::Window(this, "Event");
     event_window->setPosition({ 870, 600 });
     event_window->setFixedWidth(300);
-    event_window->setLayout(new ng::GroupLayout);
+    auto event_layout = new ng::GridLayout;
+    event_window->setLayout(event_layout);
 
-    auto name_box  = new ng::TextBox(event_window, "");
-    auto begin_box = new ng::TextBox(event_window, "");
-    auto end_box   = new ng::TextBox(event_window, "");
-    auto rank_box  = new ng::TextBox(event_window, "");
+    auto add_event_field = [&event_window](std::string name)
+    {
+        new ng::Label(event_window, name);
+        auto box  = new ng::TextBox(event_window, "");
+        box->setFixedWidth(230);
+        return box;
+    };
+
+    auto name_box  = add_event_field("Name");
+    auto begin_box = add_event_field("Begin");
+    auto end_box   = add_event_field("End");
+    auto rank_box  = add_event_field("Rank");
     profile_->set_callback([this,name_box,begin_box,end_box,rank_box](const pv::Profile::Event& e, int rk)
     {
         if (rk != -1)

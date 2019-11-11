@@ -107,7 +107,6 @@ read_caliper(std::string fn, bool mpi_functions)
     Profile profile;
 
     zstr::ifstream      in(fn);
-    std::cout << "Opened: " << fn << std::endl;
 
     std::string line;
     std::vector<std::tuple<int, size_t, size_t, bool>> events;
@@ -142,7 +141,7 @@ read_caliper(std::string fn, bool mpi_functions)
             else if (name == "event.end#annotation" || (mpi_functions && name == "event.end#mpi.function"))
             {
                 type = 1;
-                id = profile.ids.find(value)->second;
+                id = profile.id(value);
             }
             else if (name == "time.offset")
                 offset = std::stol(value);
