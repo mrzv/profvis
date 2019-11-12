@@ -116,6 +116,7 @@ read_caliper(std::string fn, bool mpi_functions)
         std::string field;
         int rank = 0;
         size_t offset;
+        size_t duration;
         int type = -1; size_t id;
         while(std::getline(iss, field, ','))
         {
@@ -125,9 +126,9 @@ read_caliper(std::string fn, bool mpi_functions)
 
             if (name == "mpi.rank")
                 rank = std::stoi(value);
-            else if (name == "event.begin#annotation" || (mpi_functions && name == "event.begin#mpi.function"))
+            else if (name == "event.end#annotation" || (mpi_functions && name == "event.end#mpi.function"))
             {
-                type = 0;
+                type = 1;
                 id = profile.names.size();
                 auto it = profile.ids.find(value);
                 if (it != profile.ids.end())
@@ -138,17 +139,17 @@ read_caliper(std::string fn, bool mpi_functions)
                     profile.ids[value] = id;
                 }
             }
-            else if (name == "event.end#annotation" || (mpi_functions && name == "event.end#mpi.function"))
-            {
-                type = 1;
-                id = profile.id(value);
-            }
+            else if (name == "time.inclusive.duration")
+                duration = std::stol(value);
             else if (name == "time.offset")
                 offset = std::stol(value);
         }
 
-        if (type >= 0)
-            events.emplace_back(rank, offset, id, type == 0);
+        if (type == 1)
+        {
+            events.emplace_back(rank, offset - duration, id, true);
+            events.emplace_back(rank, offset, id, false);
+        }
     }
 
     std::sort(events.begin(), events.end());
